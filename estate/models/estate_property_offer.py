@@ -43,16 +43,19 @@ class EstatePropertyOffer(models.Model):
             record.validity = (record.date_deadline - date).days
 
     # -- CRUD methods --
-    @api.model
-    def create(self, values):
-        if values.get("property_id") and values.get("price"):
-            prop = self.env["estate.property"].browse(values["property_id"])
-            if prop.offer_ids:
-                max_offer = max(prop.mapped("offer_ids.price"))
-                if float_compare(values["price"], max_offer, precision_rounding=0.01) <= 0:
-                    raise UserError("The offer must be higher than %.2f" % max_offer)
-            prop.state = "offer_received"
-        return super().create(values)
+    
+    # Devstral-2507 adapted this one from the technical-training-solutions
+    @api.model_create_multi
+    def create(self, values_list):
+        for values in values_list:
+            if values.get("property_id") and values.get("price"):
+                prop = self.env["estate.property"].browse(values["property_id"])
+                if prop.offer_ids:
+                    max_offer = max(prop.mapped("offer_ids.price"))
+                    if float_compare(values["price"], max_offer, precision_rounding=0.01) <= 0:
+                        raise UserError("The offer must be higher than %.2f" % max_offer)
+                prop.state = "offer_received"
+        return super().create(values_list)
 
     # -- Action Methods --
     def action_accept(self):
